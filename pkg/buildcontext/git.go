@@ -69,7 +69,7 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 	}
 	var fetchRef string
 	if len(parts) > 1 {
-		if plumbing.IsHash(parts[1]) || !strings.HasPrefix(parts[1], "refs/pull/") {
+		if plumbing.IsHash(parts[1]) || (!strings.HasPrefix(parts[1], "refs/pull/") && !strings.HasPrefix(parts[1], "refs/heads/")) {
 			// Handle any non-branch refs separately. First, clone the repo HEAD, and
 			// then fetch and check out the fetchRef.
 			fetchRef = parts[1]
@@ -77,7 +77,9 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 			// Branches will be cloned directly.
 			options.ReferenceName = plumbing.ReferenceName(parts[1])
 		}
+		logrus.Debugf("Ref 0 %s %v", options.ReferenceName, parts)
 	}
+	logrus.Debugf("Ref 1 %s", options.ReferenceName)
 
 	if branch := g.opts.GitBranch; branch != "" {
 		ref, err := getGitReferenceName(directory, url, branch)
@@ -85,6 +87,7 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 			return directory, err
 		}
 		options.ReferenceName = ref
+		logrus.Debugf("Ref 2 %s", options.ReferenceName)
 	}
 
 	logrus.Debugf("Getting source from reference %s", options.ReferenceName)
@@ -97,6 +100,7 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 		err = r.Fetch(&git.FetchOptions{
 			RemoteName: "origin",
 			RefSpecs:   []config.RefSpec{config.RefSpec(fetchRef + ":" + fetchRef)},
+			Auth:       getGitAuth(),
 		})
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return directory, err
